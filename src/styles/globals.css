@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-note-bg text-text-primary;
+  }
+}
+
+@layer components {
+  .note-container {
+    @apply max-w-3xl mx-auto p-6 bg-note-bg shadow-note rounded-md;
+  }
+
+  .sidebar-item {
+    @apply py-2 px-4 hover:bg-sidebar-hover cursor-pointer rounded-md transition-colors;
+  }
+
+  .sidebar-folder {
+    @apply font-medium;
+  }
+
+  .sidebar-project {
+    @apply pl-8;
+  }
+  
+  .note-content {
+    @apply prose prose-sm max-w-none;
+  }
+  
+  .note-content img {
+    @apply w-full my-4 rounded-md;
+  }
+  
+  .note-content video {
+    @apply w-full my-4 rounded-md;
+  }
+  
+  .breadcrumb {
+    @apply text-text-secondary text-sm mb-4;
+  }
+} 
