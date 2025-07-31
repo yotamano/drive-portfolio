@@ -9,13 +9,23 @@ const SERVICE_ACCOUNT_FILE = path.join(process.cwd(), 'drive-portfolio-467408-e4
 
 // Initialize the Drive API client
 let auth;
-if (fs.existsSync(SERVICE_ACCOUNT_FILE)) {
+
+// Check if we have service account credentials in environment variable (GitHub Actions)
+if (process.env.GOOGLE_SERVICE_ACCOUNT) {
+    console.log('Using service account from environment variable');
+    const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+    auth = new google.auth.GoogleAuth({
+        credentials: serviceAccountKey,
+        scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+} else if (fs.existsSync(SERVICE_ACCOUNT_FILE)) {
+    console.log('Using service account from file');
     auth = new google.auth.GoogleAuth({
         keyFile: SERVICE_ACCOUNT_FILE,
         scopes: ['https://www.googleapis.com/auth/drive.readonly'],
     });
 } else {
-    console.error(`Service account key file not found at: ${SERVICE_ACCOUNT_FILE}`);
+    console.error(`Service account key file not found at: ${SERVICE_ACCOUNT_FILE} and no GOOGLE_SERVICE_ACCOUNT environment variable set`);
     // Fallback to default auth to avoid crashing, though it will likely fail.
     auth = new google.auth.GoogleAuth({
         scopes: ['https://www.googleapis.com/auth/drive.readonly'],
