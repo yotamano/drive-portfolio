@@ -19,54 +19,77 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
     );
   }
 
+
+
   const renderMedia = () => {
     if (content.mediaFiles && content.mediaFiles.length > 0) {
+      const images = content.mediaFiles.filter(media => media.mimeType.startsWith('image/'));
+      const videos = content.mediaFiles.filter(media => media.mimeType.startsWith('video/'));
+      
+      // Use pre-computed layout decisions from build time
+      const layoutGroups = content.layoutConfig?.groups || [{
+        images: images,
+        layout: 'single-column' as const,
+        reason: 'fallback - no pre-computed layout'
+      }];
+      
+      // Debug logging (can be removed in production)
+      console.log('Using pre-computed layout:', {
+        totalImages: images.length,
+        hasLayoutConfig: !!content.layoutConfig,
+        layoutGroups: layoutGroups.map(g => ({
+          layout: g.layout,
+          imageCount: g.images.length,
+          reason: g.reason
+        })),
+        layoutStats: content.layoutConfig?.stats
+      });
+      
       return (
         <div className="mt-6">
-          {content.mediaFiles.map(media => (
-            <div key={media.id} className="mb-6">
-              {media.mimeType.startsWith('image/') ? (
-                <img 
-                  src={media.thumbnailLink ? media.thumbnailLink.replace('=s220', '=s800') : media.downloadLink || media.webViewLink}
-                  alt={media.name}
-                  className="w-full rounded-md"
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement;
-                    const currentSrc = img.src;
-                    
-                    // Try fallbacks in order of reliability
-                    if (media.thumbnailLink && currentSrc.includes('googleusercontent.com')) {
-                      // First fallback: try downloadLink
-                      if (media.downloadLink) {
-                        img.src = media.downloadLink;
-                      } else if (media.webViewLink) {
-                        img.src = media.webViewLink;
-                      }
-                    } else if (currentSrc.includes('export=download') && media.webViewLink) {
-                      // Second fallback: try webViewLink
-                      img.src = media.webViewLink;
-                    } else if (currentSrc.includes('export=view') && media.embedLink) {
-                      // Third fallback: try embedLink (though this won't work for img tags)
-                      console.warn(`Image failed to load: ${media.name} (${media.id})`);
-                      // Could replace with placeholder or error state here
-                    }
-                  }}
-                />
-              ) : media.mimeType.startsWith('video/') ? (
-                <iframe
-                  src={media.embedLink || `https://drive.google.com/file/d/${media.id}/preview`}
-                  className="w-full rounded-md"
-                  style={{ height: '400px', minHeight: '300px' }}
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                  title={media.name}
-                />
-              ) : null}
+          {/* Render images using pre-computed layout groups */}
+          {layoutGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="mb-8">
+              {/* Optional: Add a comment about the layout decision */}
+              {/* <div className="text-xs text-gray-400 mb-2">Layout: {group.reason}</div> */}
               
-              {/* The AI doesn't generate captions yet, but this is here for future use */}
-              {/* {media.caption && (
-                <p className="text-text-secondary text-sm mt-1">{media.caption}</p>
-              )} */}
+              <div className={group.layout === 'two-column' ? "image-grid-2" : ""}>
+                {group.images.map(media => {
+                  // Construct a Cloudinary URL with transformations
+                  const cloudinaryUrl = media.webViewLink?.includes('cloudinary') 
+                    ? media.webViewLink.replace('/upload/', '/upload/f_auto,q_auto,w_800/') 
+                    : media.webViewLink;
+
+                  return (
+                    <div key={media.id} className={group.layout === 'two-column' ? "" : "mb-6"}>
+                      <img 
+                        src={cloudinaryUrl}
+                        alt={media.name}
+                        className="w-full rounded-md"
+                        // No more onError handler needed!
+                      />
+                      
+                      {/* The AI doesn't generate captions yet, but this is here for future use */}
+                      {/* {media.caption && (
+                      <p className="text-text-secondary text-sm mt-1">{media.caption}</p>
+                    )} */}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          
+          {/* Render videos */}
+          {videos.map(media => (
+            <div key={media.id} className="mb-6 aspect-w-16 aspect-h-9">
+              <iframe
+                src={media.webViewLink} // This will now be a Cloudinary video URL if it's a video
+                className="w-full h-full rounded-md"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                title={media.name}
+              />
             </div>
           ))}
         </div>
@@ -84,12 +107,11 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
         </div>
       )}
       
-      {/* Title */}
-      <h1 className="text-2xl font-medium mb-4">{content.name}</h1>
-      
       {/* Content */}
       {content.content && (
         <div className="note-content">
+          {/* Title */}
+          <h1 className="text-2xl mb-4">{content.name}</h1>
           <ReactMarkdown rehypePlugins={[rehypeRaw]}>
             {content.content}
           </ReactMarkdown>

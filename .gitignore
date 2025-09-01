@@ -38,3 +38,6 @@ next-env.d.ts
 # service account credentials (sensitive)
 *service-account*.json
 drive-portfolio-*-*.json 
+
+# upload error log
+.upload-errors.log 

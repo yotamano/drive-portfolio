@@ -33,7 +33,7 @@ if (process.env.GOOGLE_SERVICE_ACCOUNT) {
 }
 
 
-const drive = google.drive({ version: 'v3', auth });
+export const drive = google.drive({ version: 'v3', auth });
 
 interface DriveFile {
   id: string;
@@ -42,13 +42,17 @@ interface DriveFile {
   webViewLink?: string;
   thumbnailLink?: string;
   modifiedTime: string;
+  imageMediaMetadata?: {
+    width?: number;
+    height?: number;
+  };
 }
 
 async function listFilesInFolder(folderId: string): Promise<DriveFile[]> {
   try {
     const res = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, webViewLink, thumbnailLink, modifiedTime)',
+      fields: 'files(id, name, mimeType, webViewLink, thumbnailLink, modifiedTime, imageMediaMetadata)',
       orderBy: 'folder,name',
     });
     return (res.data.files || []) as DriveFile[];
@@ -114,6 +118,9 @@ async function processDriveItem(
                 downloadLink: `https://drive.google.com/uc?export=download&id=${file.id}`,
                 embedLink: `https://drive.google.com/file/d/${file.id}/preview`,
                 thumbnailLink: file.thumbnailLink,
+                width: file.imageMediaMetadata?.width,
+                height: file.imageMediaMetadata?.height,
+                modifiedTime: file.modifiedTime,
             }));
     }
 
@@ -136,16 +143,41 @@ async function processDriveItem(
 
 export async function getPortfolioData(lastFetch: string | null = null): Promise<PortfolioData> {
   try {
-    const rootItems = await listFilesInFolder(DRIVE_FOLDER_ID);
-    const tree = (
-      await Promise.all(
-        rootItems.map((item) => processDriveItem(item, ''))
-      )
-    ).filter((item): item is ContentItem => item !== null);
+    const root = await processDriveItem({
+      id: DRIVE_FOLDER_ID,
+      name: 'root',
+      mimeType: 'application/vnd.google-apps.folder',
+      modifiedTime: new Date().toISOString()
+    }, '');
 
-    return { tree };
+    if (!root) {
+      return {
+          root: {
+              id: 'root',
+              name: 'root',
+              path: '/',
+              type: 'folder',
+              children: []
+          },
+          lastFetch: new Date().toISOString()
+      };
+    }
+
+    return { 
+      root,
+      lastFetch: new Date().toISOString()
+    };
   } catch (error) {
     console.error('Error getting portfolio data:', error);
-    return { tree: [] };
+    return {
+        root: {
+            id: 'root',
+            name: 'root',
+            path: '/',
+            type: 'folder',
+            children: []
+        },
+        lastFetch: new Date().toISOString()
+    };
   }
 } 

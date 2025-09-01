@@ -44,59 +44,72 @@ export default function PathPage({ content }: PathPageProps) {
 export async function getStaticPaths() {
   const fs = require('fs');
   const path = require('path');
-  const structurePath = path.join(process.cwd(), 'public', 'content', 'structure.json');
-  let portfolioData: PortfolioData = { tree: [] };
+  const contentPath = path.join(process.cwd(), 'public', 'content', 'content.json');
+  let portfolioData: PortfolioData | null = null;
   try {
-    const structureJson = fs.readFileSync(structurePath, 'utf8');
-    portfolioData = JSON.parse(structureJson);
+    const contentJson = fs.readFileSync(contentPath, 'utf8');
+    portfolioData = JSON.parse(contentJson);
   } catch (error) {
-    console.error(`Could not read structure for paths: ${error}`);
+    console.error(`Could not read content.json for paths: ${error}`);
   }
 
-  const getPaths = (items: ContentItem[]): { params: { path: string[] } }[] => {
+  const getPaths = (item: ContentItem): { params: { path: string[] } }[] => {
     let paths: { params: { path: string[] } }[] = [];
-    for (const item of items) {
-      // Create a path for ALL items now
-      paths.push({ params: { path: item.path.split('/').filter(Boolean) } });
-      
-      if (item.children) {
-        paths = paths.concat(getPaths(item.children));
+    if (item.path !== '/') { // Don't create a path for the root itself
+        paths.push({ params: { path: item.path.split('/').filter(Boolean) } });
+    }
+    
+    if (item.children) {
+      for (const child of item.children) {
+        paths = paths.concat(getPaths(child));
       }
     }
     return paths;
   };
 
-  const paths = getPaths(portfolioData.tree);
+  const paths = portfolioData ? getPaths(portfolioData.root) : [];
 
-  return { paths, fallback: false };
+  return { paths, fallback: 'blocking' };
 }
 
 export async function getStaticProps({ params }: { params: { path: string[] } }) {
   const fs = require('fs');
   const path = require('path');
 
-  const structurePath = path.join(process.cwd(), 'public', 'content', 'structure.json');
-  let portfolioData: PortfolioData = { tree: [] };
-  try {
-    const structureJson = fs.readFileSync(structurePath, 'utf8');
-    portfolioData = JSON.parse(structureJson);
-  } catch (error) {
-    console.error(`Could not read portfolio structure for props: ${error}`);
-  }
-
-  const currentPath = '/' + params.path.join('/');
-  const contentPath = path.join(process.cwd(), 'public', 'content', currentPath, 'index.json');
-  let content: ContentItem | null = null;
+  const contentPath = path.join(process.cwd(), 'public', 'content', 'content.json');
+  let portfolioData: PortfolioData | null = null;
   try {
     const contentJson = fs.readFileSync(contentPath, 'utf8');
-    content = JSON.parse(contentJson);
+    portfolioData = JSON.parse(contentJson);
   } catch (error) {
-    console.error(`Could not read content for ${currentPath}: ${error}`);
+    console.error(`Could not read portfolio content.json for props: ${error}`);
   }
 
+  const currentPath = '/' + (params?.path?.join('/') || '');
+  
+  const findContent = (item: ContentItem): ContentItem | null => {
+    if (item.path === currentPath) {
+      return item;
+    }
+    if (item.children) {
+      for (const child of item.children) {
+        const found = findContent(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  
+  const content = portfolioData ? findContent(portfolioData.root) : null;
+
+  if (!content) {
+    return {
+      notFound: true,
+    };
+  }
+  
   return {
     props: {
-      portfolioData,
       content,
     },
   };

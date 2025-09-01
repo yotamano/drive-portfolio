@@ -27,7 +27,7 @@ export default function Home({ portfolioData }: HomeProps) {
         return null;
       };
 
-      const firstItem = findFirstDisplayableItem(portfolioData.tree);
+      const firstItem = findFirstDisplayableItem(portfolioData.root?.children || []);
 
       if (firstItem) {
         router.replace(firstItem.path);
@@ -43,14 +43,28 @@ export default function Home({ portfolioData }: HomeProps) {
 export async function getStaticProps() {
   const fs = require('fs');
   const path = require('path');
-  const structurePath = path.join(process.cwd(), 'public', 'content', 'structure.json');
+  const contentPath = path.join(process.cwd(), 'public', 'content', 'content.json');
   
-  let portfolioData: PortfolioData = { tree: [] };
+  let portfolioData: PortfolioData | null = null;
   try {
-    const structureJson = fs.readFileSync(structurePath, 'utf8');
-    portfolioData = JSON.parse(structureJson);
+    const contentJson = fs.readFileSync(contentPath, 'utf8');
+    portfolioData = JSON.parse(contentJson);
   } catch (error) {
-    console.error('Could not read portfolio structure:', error);
+    console.error('Could not read portfolio content.json:', error);
+  }
+
+  // If data couldn't be loaded, pass a default structure to avoid breaking the page
+  if (!portfolioData) {
+    portfolioData = {
+      root: {
+        id: 'root',
+        name: 'root',
+        path: '/',
+        type: 'folder',
+        children: []
+      },
+      lastFetch: ''
+    };
   }
 
   return {

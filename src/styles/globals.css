@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,12 +7,13 @@
 @layer base {
   body {
     @apply bg-note-bg text-text-primary;
+    font-family: 'Inter', sans-serif;
   }
 }
 
 @layer components {
   .note-container {
-    @apply max-w-3xl mx-auto p-6 bg-note-bg shadow-note rounded-md;
+    @apply mx-auto p-12 bg-note-bg shadow-note rounded-md;
   }
 
   .sidebar-item {
@@ -26,18 +29,69 @@
   }
   
   .note-content {
-    @apply prose prose-sm max-w-none;
+    @apply prose prose-sm;
+    max-width: 600px;
+  }
+  
+  /* Custom prose styling for paragraphs */
+  .note-content p {
+    color: rgb(136, 136, 136);
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: -0.7px;
+    line-height: 1.2em;
+  }
+  
+  .note-content h1 {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -2.1px;
+    line-height: 1.2em;
+    color: rgb(17, 17, 17);
   }
   
   .note-content img {
     @apply w-full my-4 rounded-md;
+    margin-left: 24px;
+    margin-right: 24px;
+    width: calc(100% - 48px);
+    max-height: 800px;
+    object-fit: contain;
   }
   
-  .note-content video {
+  /* Two-column image layout using flexbox */
+  .image-grid-2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin: 24px;
+    width: calc(100% - 48px);
+  }
+  
+  .image-grid-2 > div {
+    flex: 1;
+    min-width: 0; /* Prevents flex items from overflowing */
+  }
+  
+  .image-grid-2 img {
+    margin: 0;
+    width: 100%;
+    height: auto;
+    max-height: 800px;
+    object-fit: contain;
+  }
+  
+  .note-content video,
+  .note-content iframe {
     @apply w-full my-4 rounded-md;
+    margin-left: 24px;
+    margin-right: 24px;
+    width: calc(100% - 48px);
+    max-height: 800px;
+    object-fit: contain;
   }
   
   .breadcrumb {
     @apply text-text-secondary text-sm mb-4;
   }
-} 
+}

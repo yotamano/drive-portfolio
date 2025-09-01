@@ -1,12 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { ContentItem } from '../types';
+import { ContentItem, PortfolioData } from '../types';
 
 type SidebarProps = {
-  portfolioData?: {
-    tree: ContentItem[];
-  };
+  portfolioData?: PortfolioData;
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ portfolioData }) => {
@@ -41,7 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({ portfolioData }) => {
 
   const sidebarContent = (
     <div className="p-4">
-      {(portfolioData?.tree || []).map(item => renderContentItem(item))}
+      {(portfolioData?.root?.children || []).map(item => renderContentItem(item))}
     </div>
   );
 

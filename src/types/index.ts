@@ -1,12 +1,15 @@
-export type MediaFile = {
+export interface MediaFile {
   id: string;
   name: string;
   mimeType: string;
   webViewLink: string;
-  thumbnailLink?: string;
   downloadLink?: string;
   embedLink?: string;
-};
+  thumbnailLink?: string;
+  width?: number;
+  height?: number;
+  modifiedTime: string;
+}
 
 export type ContentItem = {
   id: string;
@@ -17,8 +20,22 @@ export type ContentItem = {
   content?: string;
   excerpt?: string;
   mediaFiles?: MediaFile[];
+  layoutConfig?: {
+    groups: Array<{
+      images: MediaFile[];
+      layout: 'two-column' | 'single-column';
+      reason: string;
+    }>;
+    stats: {
+      total: number;
+      vertical: number;
+      horizontal: number;
+      square: number;
+    };
+  };
 };
 
-export type PortfolioData = {
-  tree: ContentItem[];
-}; 
+export interface PortfolioData {
+  root: ContentItem;
+  lastFetch: string;
+} 
