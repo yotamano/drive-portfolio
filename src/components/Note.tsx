@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { ContentItem } from '../types';
+import { Shimmer, StreamedText } from './animations';
 
 type NoteProps = {
   content: ContentItem | null;
@@ -55,19 +56,46 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
               
               <div className={group.layout === 'two-column' ? "image-grid-2" : ""}>
                 {group.images.map(media => {
-                  // Construct a Cloudinary URL with transformations
-                  const cloudinaryUrl = media.webViewLink?.includes('cloudinary') 
-                    ? media.webViewLink.replace('/upload/', '/upload/f_auto,q_auto,w_800/') 
-                    : media.webViewLink;
+                  if (!media.webViewLink?.includes('cloudinary')) {
+                    // Fallback for non-cloudinary links or if something is wrong
+                    return (
+                      <div key={media.id} className={group.layout === 'two-column' ? "" : "mb-6"}>
+                        <Shimmer>
+                          <img src={media.webViewLink} alt={media.name} className="w-full rounded-md" />
+                        </Shimmer>
+                      </div>
+                    );
+                  }
+
+                  // Define the widths for our responsive images
+                  const widths = [400, 800, 1200, 1600, 2000];
+                  
+                  // Generate the srcset string for different resolutions
+                  const srcSet = widths.map(width => {
+                    const transformedUrl = media.webViewLink.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+                    return `${transformedUrl} ${width}w`;
+                  }).join(', ');
+
+                  // Define a fallback src for older browsers
+                  const fallbackSrc = media.webViewLink.replace('/upload/', '/upload/f_auto,q_auto,w_800/');
+
+                  // Give the browser hints on how the image is displayed in the layout
+                  const sizes = group.layout === 'two-column'
+                    ? "(max-width: 768px) 100vw, 50vw"
+                    : "100vw";
 
                   return (
                     <div key={media.id} className={group.layout === 'two-column' ? "" : "mb-6"}>
-                      <img 
-                        src={cloudinaryUrl}
-                        alt={media.name}
-                        className="w-full rounded-md"
-                        // No more onError handler needed!
-                      />
+                      <Shimmer>
+                        <img 
+                          src={fallbackSrc}
+                          srcSet={srcSet}
+                          sizes={sizes}
+                          alt={media.name}
+                          className="w-full rounded-md"
+                          loading="lazy" // Lazy load images for better performance
+                        />
+                      </Shimmer>
                       
                       {/* The AI doesn't generate captions yet, but this is here for future use */}
                       {/* {media.caption && (
@@ -102,7 +130,7 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
     <div className="note-container">
       {/* Breadcrumb or tag */}
       {breadcrumb && (
-        <div className="breadcrumb">
+        <div className="breadcrumb max-w-text">
           {breadcrumb}
         </div>
       )}
@@ -111,8 +139,22 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
       {content.content && (
         <div className="note-content">
           {/* Title */}
-          <h1 className="text-2xl mb-4">{content.name}</h1>
-          <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+          <Shimmer>
+            <h1 className="text-title-style mb-4 max-w-text">{content.name}</h1>
+          </Shimmer>
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
+            components={{
+              p: ({...props}) => {
+                const children = React.Children.toArray(props.children);
+                const text = children.map(child => (typeof child === 'string' ? child : '')).join('');
+                if (text) {
+                  return <StreamedText text={text} className="text-paragraph-style" />;
+                }
+                return <p className="text-paragraph-style">{props.children}</p>;
+              }
+            }}
+          >
             {content.content}
           </ReactMarkdown>
         </div>

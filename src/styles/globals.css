@@ -1,97 +1,151 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-note-bg text-text-primary;
-    font-family: 'Inter', sans-serif;
+    @apply text-text-secondary font-sans;
+    font-weight: 400;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 }
 
 @layer components {
-  .note-container {
-    @apply mx-auto p-12 bg-note-bg shadow-note rounded-md;
+  .text-title-style {
+    @apply text-title text-text-primary tracking-title leading-title mb-5;
   }
+  .text-paragraph-style {
+    @apply text-paragraph text-text-secondary leading-paragraph mb-5;
+  }
+}
 
-  .sidebar-item {
-    @apply py-2 px-4 hover:bg-sidebar-hover cursor-pointer rounded-md transition-colors;
-  }
+/* Basic Reset & Typography */
+body {
+  background-color: #ffffff;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  line-height: 1.6;
+  margin: 0;
+  padding: 50px 0 0 50px;
+  min-height: 100vh;
+}
 
-  .sidebar-folder {
-    @apply font-medium;
-  }
+h1, h2, p {
+  margin: 0;
+  padding: 0;
+}
 
-  .sidebar-project {
-    @apply pl-8;
-  }
-  
-  .note-content {
-    @apply prose prose-sm;
-    max-width: 600px;
-  }
-  
-  /* Custom prose styling for paragraphs */
-  .note-content p {
-    color: rgb(136, 136, 136);
-    font-size: 20px;
-    font-weight: 400;
-    letter-spacing: -0.7px;
-    line-height: 1.2em;
-  }
-  
-  .note-content h1 {
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -2.1px;
-    line-height: 1.2em;
-    color: rgb(17, 17, 17);
-  }
-  
-  .note-content img {
-    @apply w-full my-4 rounded-md;
-    margin-left: 24px;
-    margin-right: 24px;
-    width: calc(100% - 48px);
-    max-height: 800px;
-    object-fit: contain;
-  }
-  
-  /* Two-column image layout using flexbox */
-  .image-grid-2 {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 24px;
-    margin: 24px;
-    width: calc(100% - 48px);
-  }
-  
-  .image-grid-2 > div {
-    flex: 1;
-    min-width: 0; /* Prevents flex items from overflowing */
-  }
-  
-  .image-grid-2 img {
-    margin: 0;
-    width: 100%;
-    height: auto;
-    max-height: 800px;
-    object-fit: contain;
-  }
-  
-  .note-content video,
-  .note-content iframe {
-    @apply w-full my-4 rounded-md;
-    margin-left: 24px;
-    margin-right: 24px;
-    width: calc(100% - 48px);
-    max-height: 800px;
-    object-fit: contain;
-  }
-  
-  .breadcrumb {
-    @apply text-text-secondary text-sm mb-4;
-  }
+/* L0: Site Header */
+.zoom-level-0 {
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.3s ease-in-out;
+}
+
+.zoom-level-0.active {
+  cursor: default;
+  pointer-events: none;
+}
+
+.site-header {
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+/* L1: Project Index */
+.zoom-level-1 {
+  overflow: hidden; /* For animations */
+}
+
+.project-index {
+  padding: 0;
+  margin-top: 20px;
+}
+
+.project-container {
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.project-row {
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.2s ease;
+}
+
+/* L2: Project Card */
+.project-card {
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden; /* Important for framer-motion height animation */
+}
+
+.project-card-hover .project-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.project-card-hover {
+  pointer-events: none; /* Prevent hover card from capturing clicks */
+  overflow: visible; /* Allow absolutely positioned children to be visible */
+}
+
+.hover-image-container {
+  position: absolute;
+  left: 650px;
+  top: 0;
+  width: 192px; /* Corresponds to w-48 in Tailwind */
+  z-index: 10;
+}
+
+.project-card-description {
+  margin-bottom: 1.5rem;
+  color: #555;
+}
+
+.hero-image {
+  border-radius: 4px;
+}
+
+/* L3: Full Case Study */
+.full-case {
+  padding: 0;
+  overflow: hidden;
+}
+
+.case-paragraph {
+  margin-bottom: 1rem;
+}
+
+.case-media {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.case-image {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.shimmer-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%);
 }

@@ -69,7 +69,7 @@ export async function getStaticPaths() {
 
   const paths = portfolioData ? getPaths(portfolioData.root) : [];
 
-  return { paths, fallback: 'blocking' };
+  return { paths, fallback: false };
 }
 
 export async function getStaticProps({ params }: { params: { path: string[] } }) {
@@ -110,6 +110,7 @@ export async function getStaticProps({ params }: { params: { path: string[] } })
   
   return {
     props: {
+      portfolioData,
       content,
     },
   };

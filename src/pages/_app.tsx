@@ -1,3 +1,5 @@
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
 import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Layout from '../components/Layout';

@@ -64,7 +64,10 @@ async function uploadToCloudinary(driveFile: any, parentPath: string): Promise<a
       ? driveFile.name.substring(0, driveFile.name.lastIndexOf('.')) 
       : driveFile.name;
       
-    const public_id = `${parentPath}/${nameWithoutExtension}`;
+    // Sanitize for characters that are problematic in URLs/public_ids
+    const sanitizedName = nameWithoutExtension.replace(/&/g, 'and').replace(/[/\\?%*:|"<>]/g, '-');
+
+    const public_id = `${parentPath}/${sanitizedName}`;
 
     const downloader = await axios({
       url: `https://www.googleapis.com/drive/v3/files/${driveFile.id}?alt=media`,
@@ -195,6 +198,99 @@ function writeLastFetch() {
   fs.writeFileSync(LAST_FETCH_FILE, new Date().toISOString());
 }
 
+// Generate zoom-level content for the portfolio
+async function generateZoomContent(projects: ContentItem[]): Promise<any> {
+  console.log('Generating zoom-level content structure...');
+
+  const projectsContent = projects.map(project => {
+    const mediaNames = (project.mediaFiles || []).map(f => f.name).join(', ');
+    return {
+      name: project.name,
+      content: project.content || '',
+      mediaFiles: mediaNames,
+      path: project.path
+    };
+  }).slice(0, 6); // Limit to first 6 projects for the prompt
+
+  const prompt = `
+You are creating content for a zoom-based portfolio website with 4 levels. Please generate structured content following these exact rules:
+
+ZOOM LEVEL RULES:
+- L0: Site header (≤90 chars): "Hi, I'm Yotam — designer working with AI and the web."
+- L1: Index rows (≤140 chars each): Title (year) [medium] [Role] - all 3 properties are optional if applicable. No adjectives.
+- L2: Project card (25-45 words): What it is, for whom, how it works. One sentence.
+- L3: Full case (max 3 short paragraphs): Problem, solution, result.
+
+PROJECTS TO PROCESS:
+${JSON.stringify(projectsContent, null, 2)}
+
+Return a JSON object with this exact structure:
+{
+  "siteHeader": "Hi, I'm Yotam — designer working with AI and the web.",
+  "projects": [
+    {
+      "id": "project-path",
+      "l1": "Project Title (2024) Web Development Technical Lead",
+      "l2": "One compelling sentence describing what it is, for whom, and how it works in 25-45 words.",
+      "l3": {
+        "problem": "Brief paragraph about the problem or challenge",
+        "solution": "Brief paragraph about the approach and solution", 
+        "result": "Brief paragraph about the outcome and impact"
+      },
+      "year": "2024",
+      "medium": "Web Development",
+      "role": "Technical Lead"
+    }
+  ]
+}
+
+IMPORTANT:
+- Extract real years from content when possible, omit if not available
+- Infer medium from project content (Web Development, UX Design, AI Tool, etc.) - omit if unclear
+- Infer role from content (Technical Lead, Designer, Creator, etc.) - omit if unclear
+- L1 format: "Title (year) [medium] [Role]" where year, medium, and role are optional
+- L2 must be exactly one sentence, 25-45 words
+- L3 paragraphs should be 2-3 sentences each
+- Use the project's actual path as the id
+
+Please provide only the JSON object as output.
+`;
+
+  try {
+    const { textStream } = await streamText({
+      model: openai('gpt-4o-mini'),
+      prompt,
+    });
+
+    let jsonString = '';
+    for await (const delta of textStream) {
+      jsonString += delta;
+    }
+
+    const cleanJsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJsonString);
+  } catch (error) {
+    console.error('Error generating zoom content:', error);
+    // Return fallback structure
+    return {
+      siteHeader: "Hi, I'm Yotam — designer working with AI and the web.",
+      projects: projects.slice(0, 6).map((project, index) => ({
+        id: project.path,
+        l1: `${project.name} (2024) Web Development Technical Lead`,
+        l2: `Interactive experience built with modern web technologies for creative professionals.`,
+        l3: {
+          problem: "Traditional portfolio websites lack engaging interaction patterns.",
+          solution: "Built an innovative zoom-based navigation system with seamless transitions.",
+          result: "Created an immersive experience that feels like AI-generated content expansion."
+        },
+        year: "2024",
+        medium: "Web Development", 
+        role: "Technical Lead"
+      }))
+    };
+  }
+}
+
 async function enhanceContent(item: ContentItem): Promise<ContentItem> {
   console.log(`Enhancing content for: ${item.name}`);
 
@@ -313,6 +409,14 @@ Please provide only the JSON object as the output.
 }
 
 async function processItem(item: ContentItem, manifest: AssetManifest, seenDriveIds: Set<string>, errorLog: fs.WriteStream) {
+  // First, recursively process all children so we have their data
+  if (item.children) {
+    for (const child of item.children) {
+      await processItem(child, manifest, seenDriveIds, errorLog);
+    }
+  }
+
+  // Now, handle the media files for the current item
   if (item.mediaFiles) {
     const processedMediaFiles: MediaFile[] = [];
     for (const mediaFile of item.mediaFiles) {
@@ -377,12 +481,13 @@ async function processItem(item: ContentItem, manifest: AssetManifest, seenDrive
         item.layoutConfig = analyzeImageLayout(images);
     }
   }
+}
 
-  if (item.children) {
-    for (const child of item.children) {
-      await processItem(child, manifest, seenDriveIds, errorLog);
-    }
-  }
+// Helper function to find the main doc and media files in a project
+function extractProjectFiles(children: ContentItem[]) {
+    const doc = children.find(c => c.type === 'page');
+    const mediaFiles = children.filter(c => c.type !== 'page').flatMap(c => c.mediaFiles || []);
+    return { doc, mediaFiles };
 }
 
 // This function needs to be defined to get the google drive file, it can be imported from driveApi.ts or defined here
@@ -427,6 +532,26 @@ async function main() {
   const manifestIds = Object.keys(manifest);
   const deletedIds = manifestIds.filter(id => !seenDriveIds.has(id));
 
+  const DANGEROUS_DELETE_THRESHOLD = 10;
+  const forceDelete = process.argv.includes('--force-delete');
+
+  if (deletedIds.length > DANGEROUS_DELETE_THRESHOLD && !forceDelete) {
+    console.error(`\n\n--- SAFETY ABORT ---`);
+    console.error(`The script is about to delete ${deletedIds.length} assets from Cloudinary. This seems unusually high.`);
+    console.error(`This can happen if there is an error in the script or a problem connecting to Google Drive.`);
+    console.error(`\nFiles that would be deleted:`);
+    for (const id of deletedIds) {
+      const entry = manifest[id];
+      if (entry.status === 'success') {
+        console.error(` - ${entry.cloudinaryPublicId}`);
+      }
+    }
+    console.error(`\nIf this mass deletion is intentional, run the command again with the --force-delete flag.`);
+    console.error(`Example: npm run build -- --force-delete`);
+    process.exit(1); // Exit with an error code to stop the build
+  }
+
+
   if (deletedIds.length > 0) {
     console.log(`Pruning ${deletedIds.length} deleted assets...`);
     for (const id of deletedIds) {
@@ -457,8 +582,15 @@ async function main() {
       fs.unlinkSync(ERROR_LOG_FILE); // Clean up empty log file
   }
 
-  // AI-powered content generation for project descriptions (if applicable)
-  // ... (your existing AI logic can go here)
+  // Generate zoom-level content structure
+  console.log('Generating zoom-level content...');
+  const projects = portfolioData.root.children?.filter(item => item.type === 'project') || [];
+  const zoomContent = await generateZoomContent(projects);
+  
+  // Save zoom content separately for easy access
+  const zoomContentPath = path.join(CONTENT_DIR, 'zoom-content.json');
+  fs.writeFileSync(zoomContentPath, JSON.stringify(zoomContent, null, 2));
+  console.log(`Zoom content saved to ${zoomContentPath}`);
 
   console.log('Saving content to JSON file...');
   const outputPath = path.join(CONTENT_DIR, 'content.json');
