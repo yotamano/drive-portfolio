@@ -24,102 +24,57 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
 
   const renderMedia = () => {
     if (content.mediaFiles && content.mediaFiles.length > 0) {
-      const images = content.mediaFiles.filter(media => media.mimeType.startsWith('image/'));
-      const videos = content.mediaFiles.filter(media => media.mimeType.startsWith('video/'));
-      
-      // Use pre-computed layout decisions from build time
-      const layoutGroups = content.layoutConfig?.groups || [{
-        images: images,
-        layout: 'single-column' as const,
-        reason: 'fallback - no pre-computed layout'
-      }];
-      
-      // Debug logging (can be removed in production)
-      console.log('Using pre-computed layout:', {
-        totalImages: images.length,
-        hasLayoutConfig: !!content.layoutConfig,
-        layoutGroups: layoutGroups.map(g => ({
-          layout: g.layout,
-          imageCount: g.images.length,
-          reason: g.reason
-        })),
-        layoutStats: content.layoutConfig?.stats
-      });
-      
+      // Flatten the media from mediaLayouts if it exists, otherwise use mediaFiles directly
+      const allMedia = content.mediaLayouts 
+        ? content.mediaLayouts.flatMap(layout => layout.media)
+        : content.mediaFiles;
+
       return (
         <div className="mt-6">
-          {/* Render images using pre-computed layout groups */}
-          {layoutGroups.map((group, groupIndex) => (
-            <div key={groupIndex} className="mb-8">
-              {/* Optional: Add a comment about the layout decision */}
-              {/* <div className="text-xs text-gray-400 mb-2">Layout: {group.reason}</div> */}
-              
-              <div className={group.layout === 'two-column' ? "image-grid-2" : ""}>
-                {group.images.map(media => {
-                  if (!media.webViewLink?.includes('cloudinary')) {
-                    // Fallback for non-cloudinary links or if something is wrong
-                    return (
-                      <div key={media.id} className={group.layout === 'two-column' ? "" : "mb-6"}>
-                        <Shimmer>
-                          <img src={media.webViewLink} alt={media.name} className="w-full rounded-md" />
-                        </Shimmer>
-                      </div>
-                    );
-                  }
+          {allMedia.map(media => {
+            const isVideo = media.mimeType.startsWith('video/');
 
-                  // Define the widths for our responsive images
-                  const widths = [400, 800, 1200, 1600, 2000];
-                  
-                  // Generate the srcset string for different resolutions
-                  const srcSet = widths.map(width => {
-                    const transformedUrl = media.webViewLink.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
-                    return `${transformedUrl} ${width}w`;
-                  }).join(', ');
+            if (isVideo) {
+              return (
+                <div key={media.id} className="mb-6 aspect-w-16 aspect-h-9">
+                  <iframe
+                    src={media.webViewLink}
+                    className="w-full h-full"
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    title={media.name}
+                  />
+                </div>
+              );
+            }
 
-                  // Define a fallback src for older browsers
-                  const fallbackSrc = media.webViewLink.replace('/upload/', '/upload/f_auto,q_auto,w_800/');
+            // Define the widths for our responsive images
+            const widths = [400, 800, 1200, 1600, 2000];
+            
+            // Generate the srcset string for different resolutions
+            const srcSet = widths.map(width => {
+              const transformedUrl = media.webViewLink.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+              return `${transformedUrl} ${width}w`;
+            }).join(', ');
 
-                  // Give the browser hints on how the image is displayed in the layout
-                  const sizes = group.layout === 'two-column'
-                    ? "(max-width: 768px) 100vw, 50vw"
-                    : "100vw";
+            // Define a fallback src for older browsers
+            const fallbackSrc = media.webViewLink.replace('/upload/', '/upload/f_auto,q_auto,w_800/');
 
-                  return (
-                    <div key={media.id} className={group.layout === 'two-column' ? "" : "mb-6"}>
-                      <Shimmer>
-                        <img 
-                          src={fallbackSrc}
-                          srcSet={srcSet}
-                          sizes={sizes}
-                          alt={media.name}
-                          className="w-full rounded-md"
-                          loading="lazy" // Lazy load images for better performance
-                        />
-                      </Shimmer>
-                      
-                      {/* The AI doesn't generate captions yet, but this is here for future use */}
-                      {/* {media.caption && (
-                      <p className="text-text-secondary text-sm mt-1">{media.caption}</p>
-                    )} */}
-                    </div>
-                  );
-                })}
+            return (
+              <div key={media.id} className="mb-6">
+                <Shimmer>
+                  <img 
+                    src={fallbackSrc}
+                    srcSet={srcSet}
+                    sizes="100vw"
+                    alt={media.name}
+                    className="w-full"
+                    loading="lazy"
+                  />
+                </Shimmer>
               </div>
-            </div>
-          ))}
-          
-          {/* Render videos */}
-          {videos.map(media => (
-            <div key={media.id} className="mb-6 aspect-w-16 aspect-h-9">
-              <iframe
-                src={media.webViewLink} // This will now be a Cloudinary video URL if it's a video
-                className="w-full h-full rounded-md"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-                title={media.name}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
@@ -127,7 +82,7 @@ const Note: React.FC<NoteProps> = ({ content, breadcrumb }) => {
   };
 
   return (
-    <div className="note-container">
+    <div className="note-container content-padding">
       {/* Breadcrumb or tag */}
       {breadcrumb && (
         <div className="breadcrumb max-w-text">

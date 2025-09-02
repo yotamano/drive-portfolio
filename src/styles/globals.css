@@ -30,8 +30,13 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   line-height: 1.6;
   margin: 0;
-  padding: 50px 0 0 50px;
+  padding: 50px 0 0 0; /* Remove horizontal padding */
   min-height: 100vh;
+}
+
+.content-padding {
+  padding-left: 50px;
+  padding-right: 50px;
 }
 
 h1, h2, p {
@@ -42,7 +47,6 @@ h1, h2, p {
 /* L0: Site Header */
 .zoom-level-0 {
   cursor: pointer;
-  padding: 0;
   transition: transform 0.3s ease-in-out;
 }
 
@@ -73,7 +77,6 @@ h1, h2, p {
 
 .project-row {
   cursor: pointer;
-  padding: 0;
   transition: background-color 0.2s ease;
 }
 
@@ -109,7 +112,7 @@ h1, h2, p {
 }
 
 .hero-image {
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* L3: Full Case Study */
@@ -129,10 +132,16 @@ h1, h2, p {
   gap: 1rem;
 }
 
-.case-image {
-  width: 100%;
-  border-radius: 4px;
-  margin-bottom: 1rem;
+.case-image,
+.case-video {
+  display: block;
+  max-width: 100%; /* Don't overflow container */
+  width: auto;
+  height: auto; /* Maintain aspect ratio */
+  max-height: 80vh; /* Don't be too tall */
+  object-fit: contain; /* Fit within bounds without cropping */
+  margin: 0 auto; /* Center in flex/grid cell */
+  border-radius: 0; /* Remove rounded corners */
 }
 
 .shimmer-effect {
@@ -148,4 +157,64 @@ h1, h2, p {
     rgba(255, 255, 255, 0) 100%
   );
   transform: translateX(-100%);
+}
+
+/* Media Layouts */
+.case-media-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem; /* Space between layout groups */
+  margin-top: 2rem;
+}
+
+.black-container {
+  background-color: #888;
+  padding: 100px 100px;
+  border-radius: 0;
+}
+
+.black-container + .black-container {
+  margin-top: -2rem; /* Collapse the gap from the parent flexbox */
+}
+
+/* Layout A: Full Bleed */
+.layout-a {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
+.layout-a .case-image,
+.layout-a .case-video {
+  width: 100%;
+  height: auto;
+  max-height: none; /* Override the 80vh limit */
+}
+
+/* Layout B: 2 Side-by-Side */
+.layout-b {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+/* Layout C: 3-4 Smaller Media */
+.layout-c {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Layout D: Single Asset in Container */
+.layout-d {
+  /* The black-container class provides the main styling */
+}
+
+/* Ensure media inside containers respects padding and radius */
+.black-container .case-image,
+.black-container .case-video {
+  border-radius: 0;
 }

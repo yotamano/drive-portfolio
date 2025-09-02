@@ -55,7 +55,7 @@ export async function getStaticPaths() {
 
   const getPaths = (item: ContentItem): { params: { path: string[] } }[] => {
     let paths: { params: { path: string[] } }[] = [];
-    if (item.path !== '/') { // Don't create a path for the root itself
+    if (item.path !== '/' && item.type !== 'project') { // Don't create a path for the root itself or for projects
         paths.push({ params: { path: item.path.split('/').filter(Boolean) } });
     }
     

@@ -1,7 +1,51 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PortfolioItem, ZoomProject } from '../types';
+import { PortfolioItem, ZoomProject, MediaFile } from '../types';
 import { StreamedText, Shimmer } from './animations';
+
+const renderMedia = (media: MediaFile, index: number) => {
+  const isVideo = media.mimeType.startsWith('video/');
+  if (isVideo) {
+    return (
+      <motion.video
+        key={media.id}
+        src={media.webViewLink}
+        className="case-video"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          duration: 0.4,
+          delay: 0.4 + (index * 0.1),
+          ease: 'easeOut'
+        }}
+        style={{ cursor: 'pointer' }}
+        playsInline
+        muted
+        loop
+        autoPlay
+        onClick={(e) => {
+          const video = e.currentTarget;
+          video.muted = !video.muted;
+        }}
+      />
+    );
+  }
+  return (
+    <motion.img
+      key={media.id}
+      src={media.webViewLink}
+      alt={media.name}
+      className="case-image"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        duration: 0.4,
+        delay: 0.4 + (index * 0.1),
+        ease: 'easeOut'
+      }}
+    />
+  );
+};
 
 interface ProjectProps {
   project: PortfolioItem;
@@ -63,7 +107,7 @@ const Project: React.FC<ProjectProps> = ({
       onMouseLeave={onProjectHoverEnd}
     >
       {/* L1 & L2 Content */}
-      <div className="project-row" onClick={() => onProjectClick(project.id)}>
+      <div className="project-row content-padding" onClick={() => onProjectClick(project.id)}>
         <AnimatePresence initial={false} mode="wait">
           {isExpanded ? (
             <motion.div
@@ -100,6 +144,7 @@ const Project: React.FC<ProjectProps> = ({
             exit={{ maxHeight: 0, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{ overflow: 'hidden' }}
+            className="content-padding"
           >
             <StreamedText
               key={`l2-desc-${project.id}`}
@@ -164,45 +209,57 @@ const Project: React.FC<ProjectProps> = ({
           >
             <div className="case-content">
               {zoomProject?.l3 ? (
-                <div className="case-text">
+                <div className="case-text content-padding">
                   <StreamedText key={`l3-problem-${project.id}`} className="text-paragraph-style" text={zoomProject.l3.problem} />
                   <StreamedText key={`l3-solution-${project.id}`} className="text-paragraph-style" text={zoomProject.l3.solution} />
                   <StreamedText key={`l3-result-${project.id}`} className="text-paragraph-style" text={zoomProject.l3.result} />
                 </div>
               ) : project.content ? (
-                <div className="case-text">
-                  {project.content.split('\n\n').slice(0, 3).map((paragraph, index) => (
+                <div className="case-text content-padding">
+                  {project.content.split('\n\n').map((paragraph, index) => (
                     <StreamedText key={`l3-p-${index}-${project.id}`} className="text-paragraph-style" text={paragraph} />
                   ))}
                 </div>
               ) : null}
 
-              {project.mediaFiles && project.mediaFiles.length > 0 && (
-                <motion.div 
-                  className="case-media"
+              {project.mediaLayouts && project.mediaLayouts.length > 0 && (
+                <motion.div
+                  className="case-media-container"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.4, delay: 0.3 }}
                 >
-                  {project.mediaFiles
-                    .filter(media => media.mimeType.startsWith('image/'))
-                    .slice(0, 3)
-                    .map((media, index) => (
-                      <motion.img
-                        key={media.id}
-                        src={media.webViewLink}
-                        alt={media.name}
-                        className="case-image"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ 
-                          duration: 0.4, 
-                          delay: 0.4 + (index * 0.1),
-                          ease: 'easeOut'
-                        }}
-                        style={{ display: 'block', width: '100%', height: 'auto' }}
-                      />
-                    ))}
+                  {project.mediaLayouts.map((layoutGroup, groupIndex) => {
+                    const { layout, media } = layoutGroup;
+                    switch (layout) {
+                      case 'A':
+                        return (
+                          <div key={groupIndex} className="layout-a">
+                            {media.map(renderMedia)}
+                          </div>
+                        );
+                      case 'B':
+                        return (
+                          <div key={groupIndex} className="layout-b black-container">
+                            {media.map(renderMedia)}
+                          </div>
+                        );
+                      case 'C':
+                        return (
+                          <div key={groupIndex} className="layout-c black-container">
+                            {media.map(renderMedia)}
+                          </div>
+                        );
+                      case 'D':
+                        return (
+                          <div key={groupIndex} className="layout-d black-container">
+                            {media.map(renderMedia)}
+                          </div>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
                 </motion.div>
               )}
             </div>

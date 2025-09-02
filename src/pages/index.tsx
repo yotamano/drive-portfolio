@@ -91,13 +91,24 @@ export default function HomePage({ portfolioData, zoomContent }: { portfolioData
 
       {/* L0: Site Header */}
       <div
-        className={`zoom-level-0 ${siteLevel !== 0 ? 'active' : ''}`}
+        className={`zoom-level-0 content-padding ${siteLevel !== 0 ? 'active' : ''}`}
         onClick={() => setSiteLevel(1)}
       >
-        <StreamedText
-          text={zoomContent?.siteHeader || "Hi, I'm Yotam — designer working with AI and the web."}
-          className="text-paragraph-style"
-        />
+        {siteLevel === 0 ? (
+          <StreamedText
+            text={zoomContent?.siteHeader || "Hi, I'm Yotam — designer working with AI and the web."}
+            className="text-paragraph-style"
+          />
+        ) : (
+          <div>
+            <p className="text-title-style" style={{ marginBottom: 0 }}>
+              {"Hi, I'm Yotam"}
+            </p>
+            <p className="text-paragraph-style">
+              {"designer working with AI and the web."}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* L1+: Project Index */}

@@ -4,7 +4,7 @@ dotenv.config({ path: '.env.local' });
 import fs from 'fs';
 import path from 'path';
 import { getPortfolioData } from '../lib/driveApi';
-import { ContentItem } from '../types';
+import { ContentItem, MediaLayout } from '../types';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { v2 as cloudinary } from 'cloudinary';
@@ -112,73 +112,92 @@ async function getDriveAuthToken() {
 
 const LAST_FETCH_FILE = path.join(CONTENT_DIR, '.last-fetch');
 
-// Helper function to analyze image dimensions and make layout decisions
-function analyzeImageLayout(images: MediaFile[]) {
-  if (!images) return { groups: [], stats: { total: 0, vertical: 0, horizontal: 0, square: 0 } };
-  
-  // Analyze each image
-  const imageAnalysis = images.map(img => {
-    const width = img.width || 1;
-    const height = img.height || 1;
-    const aspectRatio = width / height;
-    const isVertical = aspectRatio < 0.8; // More vertical than 4:5
-    const isHorizontal = aspectRatio > 1.3; // More horizontal than 4:3
-    const isSquareish = !isVertical && !isHorizontal;
-    
-    return {
-      ...img,
-      width,
-      height,
-      aspectRatio,
-      isVertical,
-      isHorizontal,
-      isSquareish,
-      category: isVertical ? 'vertical' : isHorizontal ? 'horizontal' : 'square'
-    };
-  });
-  
-  // Group images by category and make layout decisions
-  const verticalImages = imageAnalysis.filter(img => img.isVertical);
-  const horizontalImages = imageAnalysis.filter(img => img.isHorizontal);
-  const squareImages = imageAnalysis.filter(img => img.isSquareish);
-  
-  // Smart layout decisions based on content analysis
-  const layoutGroups = [];
-  
-  // If we have 2-4 vertical images (like phone mockups), group them in pairs
-  if (verticalImages.length >= 2 && verticalImages.length <= 4) {
-    for (let i = 0; i < verticalImages.length; i += 2) {
-      const pair = verticalImages.slice(i, i + 2);
-      layoutGroups.push({
-        images: pair,
-        layout: 'two-column' as const,
-        reason: `Vertical images ${pair.length === 2 ? 'pair' : 'group'} (${pair.map(img => `${img.width}x${img.height}`).join(', ')})`
-      });
-    }
-  }
-  
-  // Handle remaining images
-  const processedIds = new Set(layoutGroups.flatMap(group => group.images.map(img => img.id)));
-  const remainingImages = imageAnalysis.filter(img => !processedIds.has(img.id));
-  
-  // Single column for horizontal images or mixed groups
-  if (remainingImages.length > 0) {
-    layoutGroups.push({
-      images: remainingImages,
-      layout: 'single-column' as const,
-      reason: `${remainingImages.length} remaining images (mixed or horizontal)`
+// New LLM-based layout analysis function
+async function analyzeMediaLayoutsWithLLM(mediaFiles: MediaFile[]): Promise<MediaLayout[]> {
+  if (!mediaFiles || mediaFiles.length === 0) return [];
+
+  const mediaInfo = mediaFiles.map(m => ({
+    id: m.id,
+    name: m.name,
+    type: m.mimeType.startsWith('video') ? 'video' : 'image',
+    width: m.width,
+    height: m.height,
+    aspectRatio: m.width && m.height ? (m.width / m.height).toFixed(2) : 'unknown'
+  }));
+
+  const prompt = `
+    You are a visual designer tasked with creating a dynamic layout for a project portfolio.
+    Given a list of media assets, group them into layouts based on the following rules.
+
+    LAYOUT DEFINITIONS:
+    - A: Full bleed image/video (no padding). Use for the most impactful, high-res, landscape-oriented asset. Max 1 per project.
+    - B: 2 side-by-side media in a container. Good for vertical images or related items.
+    - C: 3-4 smaller media in a container. Ideal for smaller assets, UI details, or a series of related images.
+    - D: Single asset in a container. For important assets that don't fit full-bleed.
+
+    PRIORITIZATION LOGIC:
+    1.  **Importance (for Layout A):** Look for a clear "hero" image or video. Titles like "main", "hero", "cover" are strong indicators. A high-resolution, landscape-oriented image is preferred.
+    2.  **Vertical Assets (for Layout B):** Group vertical assets (aspect ratio < 0.9) in pairs.
+    3.  **Small/Detailed Assets (for Layout C):** Group smaller dimension assets or a series of related assets into groups of 3 or 4.
+    4.  **Standalone Assets (for Layout D):** Use for any remaining important assets.
+
+    MEDIA ASSETS:
+    ${JSON.stringify(mediaInfo, null, 2)}
+
+    TASK:
+    Return a JSON array of layout objects. Each object must have a "layout" property (A, B, C, or D) and a "media_ids" property containing an array of the corresponding media IDs.
+    The output must be a valid JSON array. Example:
+    [
+      { "layout": "A", "media_ids": ["1..."] },
+      { "layout": "B", "media_ids": ["2...", "3..."] }
+    ]
+    IMPORTANT: ONLY return the JSON array. Do not include any conversational text, explanations, or markdown.
+  `;
+
+  try {
+    const { textStream } = await streamText({
+      model: openai('gpt-4o-mini'),
+      prompt,
     });
-  }
-  
-  return {
-    groups: layoutGroups,
-    stats: {
-      total: images.length,
-      vertical: verticalImages.length,
-      horizontal: horizontalImages.length,
-      square: squareImages.length
+
+    let jsonString = '';
+    for await (const delta of textStream) {
+      jsonString += delta;
     }
-  };
+
+    // More robust JSON extraction to handle conversational text from the LLM
+    const startIndex = jsonString.indexOf('[');
+    const endIndex = jsonString.lastIndexOf(']');
+    
+    if (startIndex === -1 || endIndex === -1) {
+      console.error("LLM Response:", jsonString);
+      throw new Error('No valid JSON array found in LLM response.');
+    }
+
+    const cleanJsonString = jsonString.substring(startIndex, endIndex + 1);
+    const layoutInstructions = JSON.parse(cleanJsonString) as { layout: 'A' | 'B' | 'C' | 'D'; media_ids: string[] }[];
+
+    // Map the LLM output back to the full MediaFile objects
+    const mediaLayouts: MediaLayout[] = layoutInstructions.map(instruction => {
+      const mediaInLayout = instruction.media_ids
+        .map(id => mediaFiles.find(m => m.id === id))
+        .filter((m): m is MediaFile => !!m);
+      return {
+        layout: instruction.layout,
+        media: mediaInLayout,
+      };
+    });
+
+    return mediaLayouts;
+
+  } catch (error) {
+    console.error('Error analyzing media layouts with LLM:', error);
+    // Fallback to a simple single-column layout in case of error
+    return [{
+      layout: 'D',
+      media: mediaFiles
+    }];
+  }
 }
 
 function ensureDirectoryExists(dirPath: string) {
@@ -294,36 +313,9 @@ Please provide only the JSON object as output.
 async function enhanceContent(item: ContentItem): Promise<ContentItem> {
   console.log(`Enhancing content for: ${item.name}`);
 
-  // ANALYZE LAYOUT AT BUILD TIME
-  if (item.mediaFiles && item.mediaFiles.length > 0) {
-    const images = item.mediaFiles.filter(m => m.mimeType.startsWith('image/'));
-    
-    console.log(`Analyzing layout for ${item.name} - ${images.length} images`);
-    console.log('Image dimensions:', images.map(img => ({
-      name: img.name,
-      width: img.width,
-      height: img.height,
-      hasNoDimensions: !img.width || !img.height
-    })));
-    
-    // Smart layout analysis (moved from runtime to build time)
-    const layoutAnalysis = analyzeImageLayout(images);
-    
-    // Store layout decisions in the content item
-    item.layoutConfig = {
-      groups: layoutAnalysis.groups,
-      stats: layoutAnalysis.stats
-    };
-    
-    console.log(`Layout analysis for ${item.name}:`, {
-      groups: layoutAnalysis.groups.map(g => ({
-        layout: g.layout,
-        imageCount: g.images.length,
-        reason: g.reason
-      })),
-      stats: layoutAnalysis.stats
-    });
-  }
+  // This section seems to be redundant as layout analysis is now handled in processItem
+  // and the data isn't directly used here.
+  // We will remove it to avoid confusion and potential bugs.
 
   let contentForPrompt = item.content || '';
 
@@ -477,8 +469,8 @@ async function processItem(item: ContentItem, manifest: AssetManifest, seenDrive
     
     // After processing media, analyze layout
     if (item.mediaFiles.length > 0) {
-        const images = item.mediaFiles.filter(m => m.mimeType.startsWith('image/'));
-        item.layoutConfig = analyzeImageLayout(images);
+        // Use the new LLM-based layout analysis
+        item.mediaLayouts = await analyzeMediaLayoutsWithLLM(item.mediaFiles);
     }
   }
 }

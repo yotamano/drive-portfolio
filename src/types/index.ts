@@ -11,6 +11,13 @@ export interface MediaFile {
   modifiedTime: string;
 }
 
+export type LayoutType = 'A' | 'B' | 'C' | 'D';
+
+export interface MediaLayout {
+  layout: LayoutType;
+  media: MediaFile[];
+}
+
 export type ContentItem = {
   id: string;
   name: string;
@@ -20,19 +27,7 @@ export type ContentItem = {
   content?: string;
   excerpt?: string;
   mediaFiles?: MediaFile[];
-  layoutConfig?: {
-    groups: Array<{
-      images: MediaFile[];
-      layout: 'two-column' | 'single-column';
-      reason: string;
-    }>;
-    stats: {
-      total: number;
-      vertical: number;
-      horizontal: number;
-      square: number;
-    };
-  };
+  mediaLayouts?: MediaLayout[];
 };
 
 export interface PortfolioData {
